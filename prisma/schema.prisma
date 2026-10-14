@@ -1,0 +1,458 @@
+// Notrole - Estoque de TI, emprestimos e entregas de equipamentos
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------------------------------------------------------------------------
+// Estoque
+// ---------------------------------------------------------------------------
+
+/// Tipo de equipamento: notebook, monitor, headset... Cadastrada pela TI.
+model Categoria {
+  id   Int    @id @default(autoincrement())
+  nome String @unique
+  /// ITEM: cada equipamento e um registro, com numero de serie e historia
+  /// propria. QUANTIDADE: interessa so o saldo ("tenho 14, restam 3").
+  controle TipoControle
+  /// Nome do icone na interface (biblioteca lucide).
+  icone    String?
+  ordem    Int          @default(0)
+  ativo    Boolean      @default(true)
+  /// Equipamento principal (notebook, monitor): ganha aba propria na tela de
+  /// Estoque. O resto, e todo acessorio por quantidade, fica em "Perifericos".
+  secaoPropria Boolean  @default(false)
+
+  itens           Item[]
+  itensQuantidade ItemQuantidade[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum TipoControle {
+  ITEM
+  QUANTIDADE
+}
+
+/// Equipamento identificado: um registro por equipamento fisico.
+///
+/// Era a tabela "Notebook". Virou "Item" quando o Notrole passou a controlar
+/// todo o estoque de TI: um notebook e um item da categoria Notebook, e o
+/// emprestimo continua apontando para ele. Assim nao existem dois cadastros do
+/// mesmo equipamento.
+model Item {
+  id          Int  @id @default(autoincrement())
+  categoriaId Int
+  empresaId   Int
+
+  /// Nome na rede. So notebooks costumam ter.
+  hostname String? @unique
+  /// Numero de serie do fabricante (Service Tag), usado como patrimonio.
+  patrimonio String? @unique
+
+  marca       String?
+  modelo      String
+  condicao    CondicaoItem @default(NOVO)
+  situacao    SituacaoItem @default(EM_ESTOQUE)
+  observacoes String?
+
+  /// Valor do bem, exigido no termo de comodato (Clausula Primeira).
+  valor       Decimal?  @db.Decimal(12, 2)
+  dataEntrada DateTime  @default(now())
+
+  /// Entra na lista de equipamentos que podem ser emprestados com termo.
+  paraEmprestimo Boolean @default(false)
+
+  /// Com quem esta, quando foi entregue em definitivo (nao emprestado).
+  colaboradorId Int?
+  entregueEm    DateTime?
+
+  categoria     Categoria      @relation(fields: [categoriaId], references: [id])
+  empresa       Empresa        @relation(fields: [empresaId], references: [id])
+  colaborador   Colaborador?   @relation(fields: [colaboradorId], references: [id])
+  emprestimos   Emprestimo[]
+  movimentacoes Movimentacao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([situacao])
+  @@index([categoriaId])
+  @@index([empresaId])
+}
+
+/// Equipamento controlado por saldo: kit teclado e mouse, headset, adaptador.
+model ItemQuantidade {
+  id          Int    @id @default(autoincrement())
+  categoriaId Int
+  empresaId   Int
+  descricao   String
+
+  /// CHECK (quantidade >= 0) no banco (migracao integridade_estoque).
+  quantidade    Int      @default(0)
+  /// Abaixo disto, a tela avisa que esta na hora de comprar.
+  estoqueMinimo Int?
+  valorUnitario Decimal? @db.Decimal(12, 2)
+  observacoes   String?
+
+  categoria     Categoria      @relation(fields: [categoriaId], references: [id])
+  empresa       Empresa        @relation(fields: [empresaId], references: [id])
+  movimentacoes Movimentacao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, categoriaId, descricao])
+  @@index([empresaId])
+}
+
+/// Tudo o que acontece com o estoque. E o extrato de cada equipamento.
+model Movimentacao {
+  id   Int              @id @default(autoincrement())
+  tipo TipoMovimentacao
+  data DateTime         @default(now())
+
+  itemId           Int?
+  itemQuantidadeId Int?
+  /// Sempre 1 para item identificado; o saldo movimentado para os demais.
+  quantidade       Int  @default(1)
+
+  empresaOrigemId  Int?
+  empresaDestinoId Int?
+  colaboradorId    Int?
+  emprestimoId     Int?
+
+  /// E-mail do analista que registrou, ou "SISTEMA".
+  usuario    String?
+  observacao String?
+
+  /// Restrict: excluir um equipamento nao pode apagar o extrato dele. O
+  /// ItemService so exclui item sem historico (apenas ENTRADA/CONTAGEM_INICIAL)
+  /// e apaga essas linhas explicitamente antes. Ver migracao integridade_estoque.
+  item           Item?           @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  itemQuantidade ItemQuantidade? @relation(fields: [itemQuantidadeId], references: [id], onDelete: Cascade)
+  colaborador    Colaborador?    @relation(fields: [colaboradorId], references: [id])
+  emprestimo     Emprestimo?     @relation(fields: [emprestimoId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([itemId])
+  @@index([itemQuantidadeId])
+  @@index([data])
+}
+
+enum TipoMovimentacao {
+  /// Chegou pela primeira vez (compra).
+  ENTRADA
+  /// Saldo inicial, quando o estoque comecou a ser controlado.
+  CONTAGEM_INICIAL
+  /// Entregue em definitivo a um colaborador.
+  ENTREGA
+  /// Devolvido ao estoque por quem tinha recebido.
+  DEVOLUCAO
+  /// Emprestimo temporario, com termo de comodato.
+  EMPRESTIMO
+  DEVOLUCAO_EMPRESTIMO
+  /// Mudou de empresa ou de local.
+  TRANSFERENCIA
+  MANUTENCAO
+  RETORNO_MANUTENCAO
+  /// Descarte, perda ou venda.
+  BAIXA
+  /// Correcao de saldo depois de uma conferencia.
+  AJUSTE
+}
+
+/// Estado de conservacao. "Descartado" e situacao (BAIXADO), nao condicao.
+enum CondicaoItem {
+  NOVO
+  USADO
+}
+
+enum SituacaoItem {
+  EM_ESTOQUE
+  RESERVADO
+  /// Emprestado com termo de comodato (temporario).
+  EMPRESTADO
+  /// Entregue em definitivo a um colaborador.
+  ENTREGUE
+  MANUTENCAO
+  /// Descartado, vendido ou perdido.
+  BAIXADO
+}
+
+// ---------------------------------------------------------------------------
+// Pessoas
+// ---------------------------------------------------------------------------
+
+model Colaborador {
+  id           Int     @id @default(autoincrement())
+  nome         String
+  email        String  @unique
+  cpf          String? @unique
+  departamento String?
+  cargo        String?
+  // Object ID do usuario no Entra ID, quando veio da busca no AD.
+  idAD         String? @unique
+  // Endereco residencial, exigido no termo de comodato. Informado pelo
+  // colaborador na retirada e guardado para os proximos emprestimos.
+  endereco     String?
+  // Valor do campo "Empresa" do perfil no AD, como veio (ex: "Empresa Exemplo").
+  empresaAD    String?
+  ativo        Boolean @default(true)
+
+  emprestimos   Emprestimo[]
+  itens         Item[]
+  movimentacoes Movimentacao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([nome])
+}
+
+/// Empresa do grupo em nome da qual o termo de comodato e emitido.
+model Empresa {
+  id          Int     @id @default(autoincrement())
+  // Nome curto, como aparece no AD e na tela: "Empresa Exemplo".
+  apelido     String  @unique
+  razaoSocial String
+  cnpj        String  @unique
+  // Rua, numero e bairro. Cidade, UF e CEP ficam separados porque o contrato
+  // os usa em lugares diferentes (sede e "cidade, estado, data").
+  logradouro  String
+  cidade      String
+  uf          String
+  cep         String
+  // Pasta da empresa dentro do cofre do D4Sign. O termo vai para ela.
+  d4signPastaId String?
+  // Palavras que identificam a empresa no campo "Empresa" do AD, separadas
+  // por virgula. O AD costuma ter varias grafias ("Empresa Exemplo - Filial",
+  // "empresa exemplo ltda"...), e todas contem estas palavras.
+  termosAD    String
+  // Usada quando o colaborador nao tem empresa no AD.
+  padrao      Boolean @default(false)
+  ativo       Boolean @default(true)
+
+  emprestimos     Emprestimo[]
+  itens           Item[]
+  itensQuantidade ItemQuantidade[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Emprestimos
+// ---------------------------------------------------------------------------
+
+/// Cessao de um equipamento a um colaborador, com termo de comodato.
+///
+/// TEMPORARIA e o emprestimo: tem prazo, lembrete e cobranca de atraso.
+/// DEFINITIVA e a entrega: o equipamento vira ferramenta de trabalho da pessoa,
+/// sem prazo, ate ser devolvido. As duas usam o mesmo caminho de termo no
+/// D4Sign, historico e comprovante de devolucao - so muda o modelo do contrato.
+model Emprestimo {
+  id            Int       @id @default(autoincrement())
+  itemId        Int
+  colaboradorId Int
+  modalidade    ModalidadeCessao @default(TEMPORARIA)
+
+  dataInicio    DateTime  @default(now())
+  /// Vazio na entrega definitiva, que nao tem prazo.
+  dataPrevista  DateTime?
+  dataDevolucao DateTime?
+
+  status StatusEmprestimo @default(AGUARDANDO_ASSINATURA)
+
+  // Preenchido na devolucao: "BOM", "AVARIADO", etc.
+  condicaoDevolucao String?
+  observacoes       String?
+  renovacoes        Int     @default(0)
+
+  // Termo de responsabilidade no D4Sign.
+  //
+  // A geracao do termo nao acontece na hora do cadastro: ela e enfileirada. A
+  // conta do D4Sign tem um teto de requisicoes por hora e cada termo consome
+  // tres chamadas, entao emprestar cinco maquinas de uma vez estoura o limite.
+  // Estes campos deixam a fila durar entre reinicios do servidor - um termo
+  // pendente e retomado sozinho, em vez de se perder.
+  d4signDocumentId       String?
+  d4signStatus           String?
+  d4signAssinadoEm       DateTime?
+  d4signTentativas       Int       @default(0)
+  d4signProximaTentativa DateTime?
+  // Em que passo a geracao do termo parou: CRIADO, SIGNATARIO ou ENVIADO.
+  //
+  // O D4Sign cobra por documento. Gerar um termo sao tres chamadas (criar,
+  // adicionar signatario, enviar), e se a segunda falhasse, uma nova tentativa
+  // do zero criaria OUTRO documento - cobrado de novo. Com a etapa gravada logo
+  // apos cada passo, a nova tentativa retoma de onde parou e o documento e
+  // criado uma unica vez por emprestimo.
+  d4signEtapa            String?
+  // Ultima vez que o sistema perguntou ao D4Sign se o termo ja foi assinado.
+  // O servidor so e acessivel dentro da rede da empresa, entao o webhook do
+  // D4Sign nao consegue chegar ate ele: quem pergunta e o Notrole.
+  d4signVerificadoEm     DateTime?
+  // O D4Sign envia o convite de assinatura pelo Amazon SES. Um endereco que ja
+  // deu erro fica na "lista de supressao" e o e-mail simplesmente nao sai - sem
+  // aviso nenhum. O Notrole confere a situacao do envio pouco depois de mandar
+  // o termo e guarda aqui o problema, para mostrar na tela.
+  d4signAvisoEmail       String?
+  d4signEmailConferido   Boolean   @default(false)
+  // Quando conferir o envio do e-mail (so depois da etapa ENVIADO).
+  d4signConferirEmailEm  DateTime?
+  // Quantos dos signatarios ja assinaram. O termo so fica "assinado" quando
+  // todos assinam; sem isto, "assinou mas continua pendente" parecia erro.
+  d4signAssinados        Int?
+  d4signSignatarios      Int?
+
+  // Controle das notificacoes automaticas. Evita reenvio no mesmo dia e
+  // permite responder "o sistema ja cobrou esse atraso?".
+  lembretePrevioEm DateTime?
+  ultimaCobrancaEm DateTime?
+
+  // E-mail do operador que registrou a acao (vem do token do Entra ID).
+  criadoPor String?
+
+  // Dados do termo de comodato.
+  empresaId       Int?
+  motivo          String?
+  // Acessorios emprestados junto (carregador, mouse, mochila...). Vao como o
+  // item 2 do contrato.
+  acessorios      String?
+  // Testemunha do termo: o analista que registrou o emprestimo. Assina junto.
+  testemunhaNome  String?
+  testemunhaEmail String?
+
+  // Quem recebeu o equipamento na devolucao. Vai no comprovante de devolucao
+  // enviado ao colaborador.
+  devolucaoRecebidaPorNome  String?
+  devolucaoRecebidaPorEmail String?
+  // Observacao feita na devolucao (ex: "tela riscada"). Separada de
+  // "observacoes", que e anotacao interna do emprestimo e nao vai para o
+  // colaborador - esta vai, no comprovante.
+  observacoesDevolucao      String?
+
+  empresa       Empresa?         @relation(fields: [empresaId], references: [id])
+  item          Item             @relation(fields: [itemId], references: [id])
+  colaborador   Colaborador      @relation(fields: [colaboradorId], references: [id])
+  historico     HistoricoAcoes[]
+  emails        EmailEnviado[]
+  movimentacoes Movimentacao[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([dataPrevista])
+  @@index([itemId])
+  // Alem deste, existe no banco um indice unico PARCIAL
+  // "Emprestimo_itemId_em_aberto_key" (itemId WHERE status em aberto), criado
+  // na migracao integridade_estoque. O Prisma nao representa indice parcial:
+  // nao deixe `migrate dev` remove-lo.
+  @@index([colaboradorId])
+  // Usado pela rotina que retoma os termos pendentes.
+  @@index([d4signProximaTentativa])
+}
+
+enum StatusEmprestimo {
+  AGUARDANDO_ASSINATURA
+  ATIVO
+  DEVOLVIDO
+  CANCELADO
+}
+
+enum ModalidadeCessao {
+  /// Emprestimo: tem prazo de devolucao.
+  TEMPORARIA
+  /// Entrega: sem prazo, ate a pessoa devolver.
+  DEFINITIVA
+}
+
+// ---------------------------------------------------------------------------
+// Auditoria
+// ---------------------------------------------------------------------------
+
+model HistoricoAcoes {
+  id           Int        @id @default(autoincrement())
+  emprestimoId Int
+  acao         TipoAcao
+  detalhes     String?
+  // E-mail de quem executou, ou "SISTEMA" quando foi uma rotina automatica.
+  usuario      String?
+  dataAcao     DateTime   @default(now())
+
+  emprestimo Emprestimo @relation(fields: [emprestimoId], references: [id], onDelete: Cascade)
+
+  @@index([emprestimoId])
+  @@index([dataAcao])
+}
+
+enum TipoAcao {
+  CRIADO
+  TERMO_GERADO
+  TERMO_ASSINADO
+  ATIVADO
+  RENOVADO
+  LEMBRETE_ENVIADO
+  COBRADO
+  DEVOLVIDO
+  CANCELADO
+}
+
+model EmailEnviado {
+  id           Int       @id @default(autoincrement())
+  destinatario String
+  assunto      String
+  template     TipoTemplate
+  sucesso      Boolean
+  erro         String?
+  enviadoEm    DateTime  @default(now())
+
+  emprestimoId Int?
+  emprestimo   Emprestimo? @relation(fields: [emprestimoId], references: [id], onDelete: SetNull)
+
+  @@index([enviadoEm])
+  @@index([emprestimoId])
+}
+
+// ---------------------------------------------------------------------------
+// Configuracao
+// ---------------------------------------------------------------------------
+
+// Templates editaveis pela tela de Configuracoes. Antes ficavam apenas no
+// localStorage do navegador e o backend os ignorava por completo.
+model TemplateEmail {
+  id        Int          @id @default(autoincrement())
+  chave     TipoTemplate @unique
+  assunto   String
+  corpo     String
+  ativo     Boolean      @default(true)
+  updatedAt DateTime     @updatedAt
+  updatedBy String?
+}
+
+/// Ajustes que o administrador muda pela tela, sem mexer no .env do servidor.
+/// Hoje so guarda a pausa do D4Sign ("d4sign.pausado").
+model Configuracao {
+  chave     String   @id
+  valor     String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+enum TipoTemplate {
+  CONFIRMACAO_EMPRESTIMO
+  CONFIRMACAO_ENTREGA
+  LEMBRETE_PREVIO
+  COBRANCA_ATRASO
+  DEVOLUCAO_CONFIRMADA
+  TERMO_PARA_ASSINAR
+}

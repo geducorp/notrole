@@ -1,0 +1,49 @@
+# Dependências
+node_modules/
+
+# Build
+dist/
+dist.novo/
+dist.anterior/
+dist-server/
+dist-server.novo/
+dist-server.anterior/
+dist*/
+coverage/
+*.tsbuildinfo
+
+# Variáveis de ambiente (NUNCA versionar — contém segredos)
+.env
+.env.local
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+src/api/config/debug.log
+
+# Certificados e chaves
+*.cer
+*.rsp
+*.pfx
+*.key
+*.pem
+*.crt
+*.p12
+csr-*.txt
+Certificados/
+
+# Sistema operacional / editores
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/*
+
+# Backups locais do .env e dumps do banco
+.env.backup*
+env-*.txt
+*.dump
+
+# Contrato de exemplo gerado por scripts/d4sign-teste-contrato.ts
+teste-contrato.docx

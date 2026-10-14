@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8" />
+      <stop offset="100%" stop-color="#4338ca" />
+    </linearGradient>
+  </defs>
+
+  <path d="M50 10 L85 30 L85 80 L50 100 L15 80 L15 30 Z" fill="url(#shieldGrad)" />
+  
+  <rect x="32" y="38" width="36" height="24" rx="2" fill="#ffffff" />
+  <rect x="35" y="41" width="30" height="18" fill="#e0e7ff" />
+  <path d="M26 66 L74 66 L78 72 L22 72 Z" fill="#ffffff" />
+  <rect x="45" y="68" width="10" height="2" rx="1" fill="#a5b4fc" />
+
+  <text x="110" y="72" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="48" font-weight="800" fill="#f8fafc">
+    NOT<tspan fill="#6366f1">ROLE</tspan>
+  </text>
+
+  <text x="113" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="12" font-weight="500" letter-spacing="1.5" fill="#94a3b8">
+    CONTROLE DE NOTEBOOKS
+  </text>
+</svg>
