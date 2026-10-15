@@ -25,6 +25,9 @@ const COLUNAS: Record<TipoImportacao, string[]> = {
     'modelo',
     'patrimonio',
     'hostname',
+    'processador',
+    'memoria_gb',
+    'armazenamento_gb',
     'condicao',
     'valor',
     'para_emprestimo',
@@ -50,6 +53,9 @@ const EXEMPLOS: Record<TipoImportacao, string[][]> = {
       'Latitude 5440',
       'ABC1234',
       'NB-EMPRESTIMO-01',
+      'Intel Core i5',
+      '16',
+      '512',
       'Novo',
       '4.890,00',
       'sim',
@@ -60,7 +66,10 @@ const EXEMPLOS: Record<TipoImportacao, string[][]> = {
       'Empresa Exemplo B',
       'Dell',
       'P2422H 24"',
-      'XYZ9876',
+      '',
+      '',
+      '',
+      '',
       '',
       'Novo',
       '890,00',
@@ -73,6 +82,25 @@ const EXEMPLOS: Record<TipoImportacao, string[][]> = {
     ['Headset', 'Empresa Exemplo B', 'Logitech H390', '4', '3', '210,00', ''],
   ],
 };
+
+/**
+ * Colunas que entraram depois (14/10/2026). Planilha baixada antes delas
+ * continua valendo: sem a coluna, o campo fica vazio.
+ */
+const COLUNAS_OPCIONAIS = ['processador', 'memoria_gb', 'armazenamento_gb'];
+
+/** "16", "16GB", "16 GB" -> 16; "1TB", "1 TB" -> 1024; vazio -> null. */
+function paraGb(texto: string, nomeDoCampo: string): number | null {
+  const limpo = texto.trim();
+  if (!limpo) return null;
+  const achado = /^(\d+(?:[.,]\d+)?)\s*(tb|gb)?\b/i.exec(limpo);
+  const numero = achado ? Number(achado[1]!.replace(',', '.')) : NaN;
+  const gb = achado?.[2]?.toLowerCase() === 'tb' ? numero * 1024 : numero;
+  if (!Number.isFinite(gb) || gb <= 0 || !Number.isInteger(gb)) {
+    throw new Error(`${nomeDoCampo} "${limpo}" precisa ser em GB, como 16 ou 512 (ou 1 TB)`);
+  }
+  return gb;
+}
 
 export interface ResultadoImportacao {
   criados: number;
@@ -141,17 +169,21 @@ export class ImportacaoService {
     operador?: string,
     permissao?: UsuarioComPermissao,
   ): Promise<ResultadoImportacao> {
+    // Guarda o numero da linha no Excel: a mensagem "Linha 24" tem de bater
+    // com a planilha. Linha so com separadores (";;;;;;") e vazia: o Excel
+    // grava assim as linhas que tiveram formatacao, e cada uma virava erro.
     const linhas = conteudo
       .replace(/^﻿/, '')
       .split(/\r?\n/)
-      .filter((l) => l.trim());
+      .map((texto, indice) => ({ texto, numero: indice + 1 }))
+      .filter((l) => l.texto.replace(/[;"\s]/g, ''));
 
     if (linhas.length < 2) {
       throw new AppError('A planilha esta vazia: preencha pelo menos uma linha abaixo do cabecalho.', 422);
     }
 
-    const cabecalho = dividirLinha(linhas[0]!).map((c) => semAcento(c).replace(/\s+/g, '_'));
-    const esperado = COLUNAS[tipo];
+    const cabecalho = dividirLinha(linhas[0]!.texto).map((c) => semAcento(c).replace(/\s+/g, '_'));
+    const esperado = COLUNAS[tipo].filter((c) => !COLUNAS_OPCIONAIS.includes(c));
     const faltando = esperado.filter((c) => !cabecalho.includes(c));
     if (faltando.length) {
       throw new AppError(
@@ -169,9 +201,10 @@ export class ImportacaoService {
     const resultado: ResultadoImportacao = { criados: 0, erros: [] };
 
     for (let i = 1; i < linhas.length; i += 1) {
-      const valores = dividirLinha(linhas[i]!);
-      const campo = (nome: string) => valores[cabecalho.indexOf(nome)]?.trim() ?? '';
-      const numeroDaLinha = i + 1;
+      const valores = dividirLinha(linhas[i]!.texto);
+      const campo = (nome: string) =>
+        cabecalho.includes(nome) ? (valores[cabecalho.indexOf(nome)]?.trim() ?? '') : '';
+      const numeroDaLinha = linhas[i]!.numero;
 
       try {
         const categoria = categorias.find((c) => semAcento(c.nome) === semAcento(campo('categoria')));
@@ -195,11 +228,22 @@ export class ImportacaoService {
           const modelo = campo('modelo');
           if (!modelo) throw new Error('o modelo e obrigatorio');
           if (!campo('marca')) throw new Error('a marca e obrigatoria');
-          if (!campo('patrimonio')) throw new Error('o patrimonio (numero de serie) e obrigatorio');
+          // Numero de serie: obrigatorio so em computador (notebook). Monitor
+          // e celular podem entrar sem.
+          const patrimonio = campo('patrimonio') ? campo('patrimonio').toUpperCase() : null;
+          if (categoria.computador && !patrimonio) {
+            throw new Error(`o patrimonio (numero de serie) e obrigatorio para ${categoria.nome}`);
+          }
 
           const condicao = semAcento(campo('condicao')) === 'usado' ? 'USADO' : 'NOVO';
-          const patrimonio = campo('patrimonio') || null;
           const hostname = campo('hostname') ? campo('hostname').toUpperCase() : null;
+          const especificacoes = categoria.computador
+            ? {
+                processador: campo('processador') || null,
+                memoriaGb: paraGb(campo('memoria_gb'), 'a memoria'),
+                armazenamentoGb: paraGb(campo('armazenamento_gb'), 'o armazenamento'),
+              }
+            : {};
 
           if (patrimonio) {
             const existente = await prisma.item.findUnique({ where: { patrimonio } });
@@ -219,6 +263,7 @@ export class ImportacaoService {
                 modelo,
                 patrimonio,
                 hostname,
+                ...especificacoes,
                 condicao,
                 situacao: 'EM_ESTOQUE',
                 valor: paraNumero(campo('valor')),

@@ -38,6 +38,9 @@ const vazio = () => ({
   empresaId: '',
   hostname: '',
   patrimonio: '',
+  processador: '',
+  memoriaGb: '',
+  armazenamentoGb: '',
   marca: '',
   modelo: '',
   condicao: 'NOVO' as CondicaoItem,
@@ -81,6 +84,9 @@ export function ItemModal({
         empresaId: String(itemParaEditar.empresaId),
         hostname: itemParaEditar.hostname ?? '',
         patrimonio: itemParaEditar.patrimonio ?? '',
+        processador: itemParaEditar.processador ?? '',
+        memoriaGb: itemParaEditar.memoriaGb ? String(itemParaEditar.memoriaGb) : '',
+        armazenamentoGb: itemParaEditar.armazenamentoGb ? String(itemParaEditar.armazenamentoGb) : '',
         marca: itemParaEditar.marca ?? '',
         modelo: itemParaEditar.modelo,
         condicao: itemParaEditar.condicao,
@@ -105,8 +111,9 @@ export function ItemModal({
     setCampos((atual) => ({ ...atual, [campo]: valor }));
 
   const categoria = categorias.find((c) => String(c.id) === campos.categoriaId) ?? null;
-  // Hostname so faz sentido para equipamento que entra na rede.
-  const pedeHostname = categoria?.nome.toLowerCase().includes('notebook') ?? false;
+  // Computador (notebook): exige numero de serie, tem hostname e especificacoes.
+  // Monitor, celular e impressora podem entrar sem numero de serie.
+  const computador = categoria?.computador ?? false;
 
   const enviar = async (evento: React.FormEvent) => {
     evento.preventDefault();
@@ -122,7 +129,14 @@ export function ItemModal({
       categoriaId: Number(campos.categoriaId),
       empresaId: Number(campos.empresaId),
       hostname: campos.hostname.trim() || null,
-      patrimonio: campos.patrimonio.trim() || null,
+      patrimonio: campos.patrimonio.trim().toUpperCase() || null,
+      ...(computador
+        ? {
+            processador: campos.processador.trim() || null,
+            memoriaGb: campos.memoriaGb ? Number(campos.memoriaGb) : null,
+            armazenamentoGb: campos.armazenamentoGb ? Number(campos.armazenamentoGb) : null,
+          }
+        : {}),
       marca: campos.marca.trim() || null,
       modelo: campos.modelo.trim(),
       condicao: campos.condicao,
@@ -241,30 +255,74 @@ export function ItemModal({
         <div className="grid gap-4 sm:grid-cols-2">
           <Campo
             rotulo="Patrimônio (número de série)"
-            obrigatorio
-            dica="Service Tag do fabricante. Vai no termo de comodato e é por ele que o equipamento é conferido."
+            obrigatorio={computador}
+            dica={
+              computador
+                ? 'Service Tag do fabricante. Vai no termo de comodato e é por ele que o equipamento é conferido.'
+                : 'Opcional. Sem ele, o equipamento não sai com termo de comodato.'
+            }
           >
             <Input
               value={campos.patrimonio}
-              onChange={(e) => alterar('patrimonio', e.target.value)}
-              required
+              onChange={(e) => alterar('patrimonio', e.target.value.toUpperCase())}
+              required={computador}
               maxLength={64}
               placeholder="7XK2L93"
-              className="font-mono"
+              className="font-mono uppercase"
             />
           </Campo>
-          {pedeHostname && (
-            <Campo rotulo="Hostname" dica="Nome na rede.">
+          {computador && (
+            <Campo
+              rotulo="Hostname"
+              dica="Nome na rede. Ainda não formatado? Deixe vazio: fica como pendente de formatação."
+            >
               <Input
                 value={campos.hostname}
-                onChange={(e) => alterar('hostname', e.target.value)}
+                onChange={(e) => alterar('hostname', e.target.value.toUpperCase())}
                 maxLength={64}
                 placeholder="NB-EMPRESTIMO-01"
-                className="font-mono"
+                className="font-mono uppercase"
               />
             </Campo>
           )}
         </div>
+
+        {computador && (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Campo rotulo="Processador">
+              <Input
+                value={campos.processador}
+                onChange={(e) => alterar('processador', e.target.value)}
+                maxLength={80}
+                placeholder="Intel Core i5"
+              />
+            </Campo>
+            <Campo rotulo="Memória RAM (GB)">
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={4096}
+                step={1}
+                value={campos.memoriaGb}
+                onChange={(e) => alterar('memoriaGb', e.target.value)}
+                placeholder="16"
+              />
+            </Campo>
+            <Campo rotulo="Armazenamento (GB)" dica="1 TB = 1024.">
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={65536}
+                step={1}
+                value={campos.armazenamentoGb}
+                onChange={(e) => alterar('armazenamentoGb', e.target.value)}
+                placeholder="512"
+              />
+            </Campo>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Campo rotulo="Condição">

@@ -51,12 +51,35 @@ export const ROTULO_MOVIMENTACAO: Record<TipoMovimentacao, string> = {
 
 /**
  * Nome do equipamento nas telas. Nem todo item tem hostname: notebooks tem,
- * monitores e headsets nao.
+ * monitores e headsets nao. Sem hostname, o nome e marca + modelo; o numero
+ * de serie tem coluna propria e nao entra no nome.
  */
-export function nomeDoItem(item: Pick<Item, 'hostname' | 'patrimonio' | 'marca' | 'modelo'>): string {
+export function nomeDoItem(item: Pick<Item, 'hostname' | 'marca' | 'modelo'>): string {
   if (item.hostname) return item.hostname;
-  if (item.patrimonio) return `${item.modelo} (${item.patrimonio})`;
   return [item.marca, item.modelo].filter(Boolean).join(' ');
+}
+
+/** 1024 -> "1 TB"; 512 -> "512 GB". */
+export function formatarGb(gb: number): string {
+  return gb >= 1024 && gb % 1024 === 0 ? `${gb / 1024} TB` : `${gb} GB`;
+}
+
+/** "Intel Core i5 · 16 GB RAM · 512 GB": vazio quando nao ha especificacao. */
+export function especificacoesDoItem(
+  item: Partial<Pick<Item, 'processador' | 'memoriaGb' | 'armazenamentoGb'>>,
+): string {
+  return [
+    item.processador,
+    item.memoriaGb ? `${formatarGb(item.memoriaGb)} RAM` : null,
+    item.armazenamentoGb ? formatarGb(item.armazenamentoGb) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** Computador sem hostname: ainda nao foi formatado e posto na rede. */
+export function pendenteDeFormatacao(item: Pick<Item, 'hostname'> & { categoria?: { computador: boolean } | null }): boolean {
+  return !!item.categoria?.computador && !item.hostname;
 }
 
 /** Paleta das etiquetas de status: texto, fundo e contorno, claro e escuro. */
@@ -88,9 +111,12 @@ export const CLASSE_CONDICAO_ITEM: Record<CondicaoItem, string> = {
   USADO: 'bg-transparent text-slate-500 ring-slate-200 dark:text-slate-400 dark:ring-slate-700',
 };
 
-/** Hostname so existe para notebook (e o nome dele na rede). */
-export function ehNotebook(categoria: { nome: string } | null | undefined): boolean {
-  return categoria?.nome.toLowerCase().includes('notebook') ?? false;
+/**
+ * Hostname e especificacoes so existem em computador (notebook, desktop). A
+ * marca e da categoria (Configuracoes > Categorias), nao do nome.
+ */
+export function ehComputador(categoria: { computador: boolean } | null | undefined): boolean {
+  return categoria?.computador ?? false;
 }
 
 export const ROTULO_STATUS_EMPRESTIMO: Record<StatusEmprestimo, string> = {

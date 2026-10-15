@@ -127,6 +127,13 @@ export function ImportacaoModal({
           <li>1. Baixe a planilha modelo e apague as duas linhas de exemplo.</li>
           <li>2. Preencha uma linha por equipamento, contando a prateleira.</li>
           <li>3. Salve como CSV (o Excel pergunta; confirme) e envie aqui.</li>
+          {tipo === 'equipamentos' && (
+            <li className="pt-1.5 text-xs text-slate-500 dark:text-slate-400">
+              Notebook: patrimônio (número de série) obrigatório; processador, memória e armazenamento em
+              GB (ex.: 16 e 512). Sem hostname, entra como pendente de formatação. Monitor e outros: o
+              patrimônio é opcional.
+            </li>
+          )}
         </ol>
 
         <Campo rotulo="O que você vai importar">
@@ -136,7 +143,7 @@ export function ImportacaoModal({
                 {
                   valor: 'equipamentos' as Tipo,
                   titulo: 'Equipamentos',
-                  descricao: 'Notebooks, monitores, celulares: um por linha, com número de série.',
+                  descricao: 'Notebooks, monitores, celulares: um por linha.',
                 },
                 {
                   valor: 'quantidades' as Tipo,

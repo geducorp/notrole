@@ -35,7 +35,7 @@ controle de ativos aparece depois, dos mesmos dados, sem migração nem retrabal
 | | Itens identificados | Itens por quantidade |
 | --- | --- | --- |
 | Exemplos | Notebook, monitor, celular | Kit teclado e mouse, headset, adaptador, carregador |
-| Registro | Um por equipamento, com série/patrimônio | Um por tipo, com saldo |
+| Registro | Um por equipamento, com série/patrimônio (obrigatório só em computador) | Um por tipo, com saldo |
 | Tem história própria | Sim | Não |
 | Serve para empréstimo com termo | Sim | Não |
 | Controle | "Onde está e com quem" | "Tenho 14, restam 3, comprar" |
@@ -106,6 +106,12 @@ hoje é justamente o que precisa de controle.
    modelo que o sistema oferece para baixar.
 2. A tela de importação lê a planilha e cria os itens com o movimento
    "contagem inicial".
+   - Categoria marcada como **Computador** (Notebook) exige o número de
+     série e aceita processador, memória e armazenamento (GB). Sem hostname,
+     o item aparece como "Pendente de formatação". As outras categorias
+     (monitor, celular) entram sem número de série.
+   - Número de série e hostname são gravados em maiúsculas. O nome do
+     equipamento nas telas é o hostname ou, sem ele, marca + modelo.
 3. Os notebooks já cadastrados no Notrole viram itens automaticamente, com o
    histórico de empréstimos preservado.
 
@@ -175,7 +181,7 @@ não estiver configurado, todos os analistas seguem com os mesmos poderes.
 A API mudou junto: `/api/notebooks` virou `/api/itens`, e há `/api/estoque/*`
 para categorias, locais, saldos, movimentações e importação.
 
-## Decidido depois (até 13/10/2026)
+## Decidido depois (até 15/10/2026)
 
 - **Locais** saíram do sistema (migração `20260923120000_remove_local`).
 - **Empresa do analista:** o analista vê e movimenta só a empresa do campo
@@ -184,7 +190,16 @@ para categorias, locais, saldos, movimentações e importação.
 - **Telas do Estoque em abas:** Visão geral, uma aba por equipamento principal
   (categoria com "seção própria": Notebook, Monitor, Celular e Impressora já
   vêm marcadas; o administrador marca outras em Configurações → Categorias),
-  Periféricos, Por setor e Movimentações.
+  Periféricos, Por setor e Movimentações. Desde 14/10 a aba de cada categoria
+  ativa com seção própria aparece desde o início, mesmo sem cadastro, e o nome
+  vai no plural (Notebooks, Monitores, Celulares).
+- **Computador** (14/10): categoria marcada como Computador em Configurações →
+  Categorias (Notebook já vem marcada) exige número de série e tem hostname e
+  especificações (processador, memória, armazenamento). As outras entram sem
+  número de série, mas sem ele o equipamento não sai com termo de comodato.
+- **Aviso de estoque baixo** (15/10): uma etiqueta por periférico, com
+  categoria, descrição e saldo ("Memória RAM 8GB 3 / mín. 5"), no Estoque e no
+  Dashboard. A empresa só aparece para o administrador.
 - **"Acessório" virou "Periférico"** nos textos e na planilha (no código os
   nomes `acessorios` e `ItemQuantidade` continuam).
 - **O Estoque mostra só o que está com a TI** (em estoque, reservado e em
@@ -198,5 +213,6 @@ para categorias, locais, saldos, movimentações e importação.
 2. **Perfil de administrador:** é o grupo do AD em `AZURE_GRUPO_ADMIN_ID`.
    Enquanto o ID não estiver no `.env`, todos são administradores e veem todas as
    empresas (ver [ROADMAP.md](ROADMAP.md)).
-3. **Colunas próprias por seção** (por exemplo, hostname só em notebook): ainda
-   não feito.
+3. **Colunas próprias por seção** na lista (por exemplo, coluna de hostname só
+   na aba de computador): ainda não feito. Hostname e especificações já
+   aparecem só no cadastro e na ficha de computador.

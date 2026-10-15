@@ -34,6 +34,7 @@ import { formatarData, formatarMoeda } from '@/lib/dominio';
 import { cn } from '@/lib/utils';
 import type { Empresa, MetricasDashboard, ResumoEstoque, SetorComEquipamentos } from '@/types';
 import { FiltroEmpresa } from '@/components/ui/Empresa';
+import { AvisoEstoqueBaixo } from '@/components/AvisoEstoqueBaixo';
 import { usePerfil } from '@/lib/perfil';
 
 type Painel = 'estoque' | 'emprestimos';
@@ -298,20 +299,7 @@ export function Dashboard() {
           />
         </div>
 
-        {estoque && estoque.abaixoDoMinimo.length > 0 && (
-          <Card className="border-amber-200 p-4 dark:border-amber-900/60">
-            <p className="mb-2 flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-4 w-4" /> Estoque baixo
-            </p>
-            <ul className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
-              {estoque.abaixoDoMinimo.map((i) => (
-                <li key={i.id}>
-                  {i.descricao} — restam <b>{i.quantidade}</b> (mínimo {i.estoqueMinimo}) na {i.empresa}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
+        {estoque && <AvisoEstoqueBaixo itens={estoque.abaixoDoMinimo} />}
 
         <div className="grid gap-4 lg:grid-cols-7">
           <Card className="lg:col-span-4">

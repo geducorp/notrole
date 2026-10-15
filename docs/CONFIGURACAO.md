@@ -221,7 +221,9 @@ termo de comodato pelo D4Sign** (marcada por padrão). Com ela marcada, pede:
   contrato.
 
 O **valor** e o **patrimônio** do equipamento precisam estar cadastrados
-(Estoque → ficha do equipamento): eles aparecem no contrato.
+(Estoque → ficha do equipamento): eles aparecem no contrato. O cadastro só
+exige o patrimônio em categoria marcada como Computador (Notebook); monitor,
+celular e outros podem entrar sem, mas aí não saem com termo.
 
 **Só o colaborador assina** no D4Sign; o termo não tem testemunha signatária
 (Lei 14.620/2023, art. 784 §4º do CPC). O nome do analista logado sai impresso

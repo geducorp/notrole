@@ -58,6 +58,7 @@ export function CategoriasPainel() {
                 <p className="text-xs text-slate-500">
                   {c.controle === 'ITEM' ? 'Equipamento · um a um' : 'Periférico · por quantidade'}
                   {c.controle === 'ITEM' ? (c.secaoPropria ? ' · seção própria' : ' · periférico') : ''}
+                  {c.controle === 'ITEM' && c.computador ? ' · computador' : ''}
                   {!c.ativo ? ' · inativa' : ''}
                 </p>
               </div>
@@ -105,6 +106,7 @@ function CategoriaModal({
   const [icone, setIcone] = useState(categoria?.icone ?? 'package');
   const [ativo, setAtivo] = useState(categoria?.ativo ?? true);
   const [secaoPropria, setSecaoPropria] = useState(categoria?.secaoPropria ?? false);
+  const [computador, setComputador] = useState(categoria?.computador ?? false);
   const [salvando, setSalvando] = useState(false);
 
   const enviar = async (evento: React.FormEvent) => {
@@ -112,7 +114,14 @@ function CategoriaModal({
     setSalvando(true);
     try {
       // Acessorio por quantidade sempre fica em Perifericos.
-      const dados = { nome: nome.trim(), controle, icone, ativo, secaoPropria: controle === 'ITEM' && secaoPropria };
+      const dados = {
+        nome: nome.trim(),
+        controle,
+        icone,
+        ativo,
+        secaoPropria: controle === 'ITEM' && secaoPropria,
+        computador: controle === 'ITEM' && computador,
+      };
       if (categoria) await api.put(`/estoque/categorias/${categoria.id}`, dados);
       else await api.post('/estoque/categorias', dados);
       toast.success('Categoria salva.');
@@ -218,6 +227,24 @@ function CategoriaModal({
               <span className="block text-xs text-slate-500 dark:text-slate-400">
                 Para equipamentos principais, como notebook e monitor. Sem isso, a categoria fica em
                 Periféricos.
+              </span>
+            </span>
+          </label>
+        )}
+
+        {controle === 'ITEM' && (
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={computador}
+              onChange={(e) => setComputador(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-indigo-600"
+            />
+            <span>
+              Computador
+              <span className="block text-xs text-slate-500 dark:text-slate-400">
+                Para notebook e desktop: número de série obrigatório, hostname e especificações
+                (processador, memória, armazenamento). Sem hostname, aparece como pendente de formatação.
               </span>
             </span>
           </label>

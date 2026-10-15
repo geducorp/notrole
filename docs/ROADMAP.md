@@ -49,8 +49,9 @@ tomar. Para configurar o sistema, veja [CONFIGURACAO.md](CONFIGURACAO.md).
       D4Sign ou D4Sign Embed). Custa uma requisição a mais por termo.
 - [ ] **Termo em PDF gerado pelo próprio sistema**, como alternativa ao D4Sign
       quando não houver necessidade de assinatura digital.
-- [ ] **Colunas próprias por tipo de equipamento** (ex.: hostname só em
-      notebook).
+- [ ] **Colunas próprias por tipo de equipamento** na lista (ex.: coluna de
+      hostname só na aba de computador). Hostname e especificações já
+      aparecem só no cadastro e na ficha de categoria "Computador".
 - [ ] **Reserva antecipada** usando o status `RESERVADO` ("sai na segunda para
       o fulano").
 - [ ] **Filtro de período nos relatórios em PDF.**

@@ -27,6 +27,10 @@ model Categoria {
   /// Equipamento principal (notebook, monitor): ganha aba propria na tela de
   /// Estoque. O resto, e todo acessorio por quantidade, fica em "Perifericos".
   secaoPropria Boolean  @default(false)
+  /// Computador (notebook, desktop): exige numero de serie, tem hostname e
+  /// especificacoes (processador, memoria, armazenamento). Sem hostname, o
+  /// equipamento aparece como "pendente de formatacao".
+  computador   Boolean  @default(false)
 
   itens           Item[]
   itensQuantidade ItemQuantidade[]
@@ -55,6 +59,11 @@ model Item {
   hostname String? @unique
   /// Numero de serie do fabricante (Service Tag), usado como patrimonio.
   patrimonio String? @unique
+
+  /// Especificacoes, so para computador. Em GB: 16, 512, 1024 (1 TB).
+  processador     String?
+  memoriaGb       Int?
+  armazenamentoGb Int?
 
   marca       String?
   modelo      String

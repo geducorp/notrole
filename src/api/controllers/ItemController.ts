@@ -40,9 +40,12 @@ export const criarItemSchema = z.object({
   categoriaId: z.coerce.number().int().positive('Escolha a categoria.'),
   empresaId: z.coerce.number().int().positive('Escolha a empresa.'),
   hostname: z.string().trim().max(64).nullish(),
-  // Obrigatorios: os dois vao no termo de comodato, e o patrimonio e como o
-  // equipamento e conferido na prateleira.
-  patrimonio: z.string().trim().min(1, 'Informe o patrimonio (numero de serie).').max(64),
+  // O patrimonio e obrigatorio so em computador (categoria.computador): quem
+  // confere e o ItemService. Monitor e celular podem entrar sem.
+  patrimonio: z.string().trim().max(64).nullish(),
+  processador: z.string().trim().max(80).nullish(),
+  memoriaGb: z.coerce.number().int('Memoria em GB, numero inteiro.').min(1).max(4096).nullish(),
+  armazenamentoGb: z.coerce.number().int('Armazenamento em GB, numero inteiro.').min(1).max(65536).nullish(),
   marca: z.string().trim().min(1, 'Informe a marca.').max(64),
   modelo: z.string().trim().min(1, 'O modelo e obrigatorio.').max(120),
   condicao: condicaoItemSchema.optional(),

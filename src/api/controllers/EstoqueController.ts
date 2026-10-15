@@ -14,6 +14,7 @@ const categoriaSchema = z.object({
   ordem: z.coerce.number().int().min(0).optional(),
   ativo: z.boolean().optional(),
   secaoPropria: z.boolean().optional(),
+  computador: z.boolean().optional(),
 });
 
 const quantidadeSchema = z.object({
@@ -121,7 +122,10 @@ export class EstoqueController {
         'criar categorias',
       );
       // Categoria por quantidade nunca tem aba propria: fica em Perifericos.
-      if (dados.controle === 'QUANTIDADE') dados.secaoPropria = false;
+      if (dados.controle === 'QUANTIDADE') {
+        dados.secaoPropria = false;
+        dados.computador = false;
+      }
       res.status(201).json(await estoqueRepository.criarCategoria(dados));
     } catch (erro) {
       next(erro);
@@ -139,11 +143,14 @@ export class EstoqueController {
 
       // Trocar o tipo de controle depois de ter equipamento cadastrado
       // deixaria o saldo e os itens orfaos.
-      if (dados.controle || dados.secaoPropria) {
+      if (dados.controle || dados.secaoPropria || dados.computador) {
         const atual = await estoqueRepository.buscarCategoria(id);
         if (!atual) throw AppError.naoEncontrado('Categoria');
         // Categoria por quantidade nunca tem aba propria: fica em Perifericos.
-        if ((dados.controle ?? atual.controle) === 'QUANTIDADE') dados.secaoPropria = false;
+        if ((dados.controle ?? atual.controle) === 'QUANTIDADE') {
+          dados.secaoPropria = false;
+          dados.computador = false;
+        }
         if (dados.controle && atual.controle !== dados.controle) {
           const emUso = await estoqueRepository.contarUsoDaCategoria(id);
           if (emUso > 0) {

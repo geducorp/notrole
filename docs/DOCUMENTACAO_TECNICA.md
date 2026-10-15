@@ -85,9 +85,10 @@ conhecida), acesso pela internet (pensado para rede interna).
 
 | Termo | Significado |
 |---|---|
-| **Item** | Equipamento identificado, um registro por equipamento físico, com número de série (`patrimonio`) e extrato próprio. Modelo `Item` (antes `Notebook`). |
+| **Item** | Equipamento identificado, um registro por equipamento físico, com extrato próprio e número de série (`patrimonio`; obrigatório só em computador). Modelo `Item` (antes `Notebook`). |
 | **Periférico / item por quantidade** | Material controlado por saldo (`ItemQuantidade`): "tenho 14, restam 3". Na interface tudo o que não é equipamento principal aparece como "Periférico" (antes "Acessório"); no código os nomes `acessorios`/`ItemQuantidade` foram mantidos. |
-| **Categoria** | Tipo de equipamento, cadastrado pela TI. `controle` = `ITEM` (por equipamento) ou `QUANTIDADE` (por saldo). `secaoPropria` = equipamento principal, com aba própria no Estoque. |
+| **Categoria** | Tipo de equipamento, cadastrado pela TI. `controle` = `ITEM` (por equipamento) ou `QUANTIDADE` (por saldo). `secaoPropria` = equipamento principal, com aba própria no Estoque. `computador` = notebook/desktop: exige número de série, tem hostname e especificações. |
+| **Pendente de formatação** | Computador sem hostname (ainda não formatado e posto na rede). Derivado, sem coluna: `pendenteDeFormatacao` em `dominio.ts`. |
 | **Cessão** | Registro em `Emprestimo`: um item cedido a um colaborador. Tem duas modalidades. |
 | **Empréstimo** | Cessão `modalidade = TEMPORARIA`: tem `dataPrevista`, lembrete na véspera e cobrança de atraso. Item fica `EMPRESTADO`. |
 | **Entrega** | Cessão `modalidade = DEFINITIVA`: sem prazo, o equipamento vira ferramenta de trabalho da pessoa até ser devolvido. Item fica `ENTREGUE` e `Item.colaboradorId` aponta para a pessoa. |
@@ -324,7 +325,7 @@ C:\Sistemas\Notrole
 │   │   │   └── NotificacaoJob.ts cobrança e lembrete (idempotentes)
 │   │   └── utils/
 │   │       ├── datas.ts       prazos, atraso, datas de formulário, dia útil
-│   │       ├── itens.ts       nomeDoItem / descricaoDoItem
+│   │       ├── itens.ts       nomeDoItem / descricaoDoItem / especificacoesDoItem
 │   │       ├── documentos.ts  CPF, moeda, data por extenso
 │   │       ├── LimitadorDeTaxa.ts janela deslizante de 1 h (cota do D4Sign)
 │   │       ├── cron.ts        calcula execução anterior/próxima para a tela
@@ -359,7 +360,7 @@ C:\Sistemas\Notrole
 ├── dist/ , dist-server/       builds em produção (gerados, fora do git)
 ├── dist.anterior/ , dist-server.anterior/  versão anterior, usada pelo rollback
 ├── logs/                      api.log, watchdog.log, backup.log, alertas/, manutencao.lock
-├── public/                    estáticos do Vite
+├── public/                    estáticos do Vite; favicon.svg é o ícone da guia (index.html)
 └── Certificados/, *.cer, csr-notrole.txt   certificado do site
 ```
 
@@ -395,9 +396,11 @@ automáticas na maioria das tabelas.
 | `ordem` | Int (0) | ordenação |
 | `ativo` | Boolean (true) | |
 | `secaoPropria` | Boolean (false) | equipamento principal: aba própria no Estoque. Forçado a `false` quando `controle = QUANTIDADE` |
+| `computador` | Boolean (false) | notebook/desktop: exige `patrimonio`, tem hostname e especificações. Forçado a `false` quando `controle = QUANTIDADE` |
 
 Relações: `itens Item[]`, `itensQuantidade ItemQuantidade[]`. Iniciais:
-Notebook, Monitor, Celular, Impressora (`ITEM`, `secaoPropria = true`);
+Notebook, Monitor, Celular, Impressora (`ITEM`, `secaoPropria = true`; só
+Notebook com `computador = true`);
 Memória RAM, Kit teclado e mouse, Headset, Adaptador, Carregador (`QUANTIDADE`).
 
 #### `Item` (equipamento identificado)
@@ -405,7 +408,9 @@ Memória RAM, Kit teclado e mouse, Headset, Adaptador, Carregador (`QUANTIDADE`)
 |---|---|---|
 | `categoriaId`, `empresaId` | Int | FK obrigatórias |
 | `hostname` | String? | **único**, gravado em maiúsculas |
-| `patrimonio` | String? | **único**; número de série / Service Tag. Obrigatório no cadastro pela API |
+| `patrimonio` | String? | **único**, gravado em maiúsculas; número de série / Service Tag. Obrigatório só em categoria `computador` (cadastro, edição e importação); sem ele, não sai termo de comodato (`SEM_PATRIMONIO`) |
+| `processador` | String? | especificação, só em computador |
+| `memoriaGb`, `armazenamentoGb` | Int? | especificações em GB (1 TB = 1024), só em computador |
 | `marca` | String? | obrigatório no cadastro pela API |
 | `modelo` | String | |
 | `condicao` | `CondicaoItem` (NOVO) | vira `USADO` na devolução |
@@ -544,6 +549,7 @@ erDiagram
         string nome UK
         enum controle
         boolean secaoPropria
+        boolean computador
     }
     Item {
         int id PK
@@ -551,6 +557,9 @@ erDiagram
         int empresaId FK
         string hostname UK
         string patrimonio UK
+        string processador
+        int memoriaGb
+        int armazenamentoGb
         string modelo
         enum situacao
         enum condicao
@@ -636,6 +645,7 @@ Aplicadas por `npx prisma migrate deploy` (no deploy). Pasta `prisma/migrations`
 | `20261009180000_integridade_estoque` | FK `Movimentacao -> Item` vira `RESTRICT`; índice único parcial de cessão aberta; `CHECK quantidade >= 0` |
 | `20261013100000_template_termo_para_assinar` | Valor `TERMO_PARA_ASSINAR` no enum `TipoTemplate` |
 | `20261013140000_categoria_secao_propria` | `Categoria.secaoPropria`; marca Notebook, Monitor, Celular e Impressora |
+| `20261014180000_computador_e_especificacoes` | `Categoria.computador` (marca as categorias `ITEM` com "notebook" no nome); `Item.processador`, `memoriaGb`, `armazenamentoGb`; patrimônios existentes passam para maiúsculas |
 
 ---
 
@@ -927,8 +937,8 @@ controller com `exigirAdministrador`).
 |---|---|---|---|
 | GET | `/itens` | Negócio | Lista. Query: `busca`, `situacao`, `situacoes` (CSV), `condicao`, `categoriaId`, `empresaId` (só admin), `colaboradorId`, `paraEmprestimo`, `comColaborador`, `secaoPropria` |
 | GET | `/itens/:id` | Negócio | Ficha com extrato e cessões |
-| POST | `/itens` | Negócio | Cadastra (+ `ENTRADA`). Obrigatórios: categoria, empresa, patrimônio, marca, modelo |
-| PUT | `/itens/:id` | Negócio | Edita (sem situação; empresa só por transferência) |
+| POST | `/itens` | Negócio | Cadastra (+ `ENTRADA`). Obrigatórios: categoria, empresa, marca, modelo; patrimônio só em categoria `computador` (422 sem ele). Opcionais: `processador`, `memoriaGb`, `armazenamentoGb` (gravados só em computador) |
+| PUT | `/itens/:id` | Negócio | Edita (sem situação; empresa só por transferência); mesma regra do patrimônio, conferida na categoria final |
 | DELETE | `/itens/:id` | Negócio | Exclui só sem histórico (ver 6.7) |
 | POST | `/itens/:id/devolucao` | Negócio | Recebe de volta item entregue **sem** cessão aberta (`observacao`, `condicaoAvariada`) |
 | POST | `/itens/:id/transferencia` | Negócio | Transfere (`empresaId` destino, `observacao`) |
@@ -940,14 +950,14 @@ controller com `exigirAdministrador`).
 
 | Método | Rota | Quem | Descrição |
 |---|---|---|---|
-| GET | `/estoque/resumo` | Negócio | Totais por situação, valores, periféricos abaixo do mínimo |
+| GET | `/estoque/resumo` | Negócio | Totais por situação, valores, periféricos abaixo do mínimo (`abaixoDoMinimo`: descrição, `categoria`, saldo, mínimo, empresa) |
 | GET | `/estoque/por-setor` | Negócio | Quem está com o quê, por departamento (entregas + empréstimos em aberto) |
 | GET | `/estoque/modelo-importacao` | Negócio | CSV modelo (`tipo=equipamentos|quantidades`) |
 | POST | `/estoque/importacao` | Negócio | Importa CSV (`tipo`, `conteudo`), movimentação `CONTAGEM_INICIAL`; aponta linhas com erro |
 | GET | `/estoque/movimentacoes` | Negócio | Extrato (filtros por item, periférico, empresa...) |
 | GET | `/estoque/categorias` | Negócio | Lista categorias |
 | POST | `/estoque/categorias` | Admin\* | Cria categoria |
-| PUT | `/estoque/categorias/:id` | Admin\* | Edita (inclui `secaoPropria`, forçada a `false` em `QUANTIDADE`); trocar o tipo de controle de categoria já usada é recusado (409: crie outra) |
+| PUT | `/estoque/categorias/:id` | Admin\* | Edita (inclui `secaoPropria` e `computador`, forçadas a `false` em `QUANTIDADE`); trocar o tipo de controle de categoria já usada é recusado (409: crie outra) |
 | GET | `/estoque/quantidades` | Negócio | Lista periféricos por saldo |
 | POST | `/estoque/quantidades` | Negócio | Cadastra periférico |
 | PUT | `/estoque/quantidades/:id` | Negócio | Edita periférico |
@@ -1166,8 +1176,8 @@ Variáveis no formato `{variavel}`; vazia some do texto.
 | `COBRANCA_ATRASO` | Rotina de cobrança: prazo vencido, uma vez por dia útil | `nome`, `hostname`, `modelo`, `data_prevista`, `dias_atraso` |
 | `DEVOLUCAO_CONFIRMADA` | Ao registrar a devolução, com o comprovante PDF anexado | `nome`, `hostname`, `modelo`, `data_devolucao` |
 
-`hostname` é na verdade `nomeDoItem` (hostname, ou "modelo (patrimônio)", ou
-marca + modelo). O convite do D4Sign leva uma mensagem própria
+`hostname` é na verdade `nomeDoItem` (hostname ou, sem ele, marca + modelo; o
+número de série não entra no nome). O convite do D4Sign leva uma mensagem própria
 (`mensagemDoConvite`). Os alertas de operação **não** usam esses modelos (ver 14.3).
 
 ---
@@ -1207,7 +1217,7 @@ Botões em Configurações (admin, 5 execuções a cada 5 min) enviam e-mails de
 | Dashboard | Tela Dashboard, `GET /relatorios/dashboard` | `ReportService.obterMetricasDashboard` | Painel Estoque (em estoque, com colaboradores, em manutenção, valor em estoque, por categoria) e painel Empréstimos (em aberto, aguardando assinatura, atrasadas, vencendo em 7 dias, por departamento) |
 | PDF do estoque | `GET /relatorios/pdf/estoque` (`estoque-ti.pdf`) | `ReportService.gerarRelatorioItens` (pdfkit, streaming) | Inventário filtrado por empresa/categoria |
 | PDF das cessões | `GET /relatorios/pdf/emprestimos` (`emprestimos-em-aberto.pdf`) | `ReportService.gerarRelatorioEmprestimos` | Cessões em aberto |
-| Planilha Excel | `GET /relatorios/planilha` (`notrole-<painel>[-empresa][-tipo]-<data>.xlsx`) | `PlanilhaService` (exceljs) | Aba "Resumo" + listas por trás de cada número; cabeçalho congelado, filtro, moeda e data formatadas. Nomes de arquivo só `[a-z0-9-]` |
+| Planilha Excel | `GET /relatorios/planilha` (`notrole-<painel>[-empresa][-tipo]-<data>.xlsx`) | `PlanilhaService` (exceljs) | Aba "Resumo" + listas por trás de cada número (a de equipamentos tem a coluna "Especificações", de `especificacoesDoItem`); cabeçalho congelado, filtro, moeda e data formatadas. Nomes de arquivo só `[a-z0-9-]` |
 | Comprovante de devolução | Anexo do e-mail e `GET /emprestimos/:id/comprovante-devolucao` | `ComprovanteService.gerarDevolucao` (pdfkit) | Comprova a devolução (quem recebeu, condição, observação). Substitui a seção de devolução que saiu do termo |
 | Termo de comodato | Enviado ao D4Sign | `ContratoService` (jszip sobre o .docx) | Ver abaixo |
 | CSV modelo da contagem inicial | `GET /estoque/modelo-importacao` | `ImportacaoService` | `;` como separador (Excel pt-BR) |
@@ -1225,10 +1235,16 @@ um modelo editado: `npx tsx scripts/d4sign-teste-contrato.ts` (gera
 `teste-contrato.docx` sem falar com o D4Sign).
 
 **Importação (contagem inicial):** CSV com colunas
-`categoria;empresa;marca;modelo;patrimonio;hostname;condicao;valor;para_emprestimo;observacoes`
+`categoria;empresa;marca;modelo;patrimonio;hostname;processador;memoria_gb;armazenamento_gb;condicao;valor;para_emprestimo;observacoes`
 (equipamentos) ou `categoria;empresa;descricao;quantidade;estoque_minimo;valor_unitario;observacoes`
-(quantidades). As linhas boas entram; as com erro são apontadas pelo número. O
-analista só importa linhas da empresa dela. Corpo JSON aceita até 5 MB.
+(quantidades). `processador`, `memoria_gb` e `armazenamento_gb` são opcionais
+(planilha baixada antes de 14/10 continua valendo) e só gravam em categoria
+`computador`; memória e armazenamento aceitam "16", "16GB" ou "1 TB" (vira
+1024). Patrimônio é obrigatório só em computador; patrimônio e hostname entram
+em maiúsculas. Linhas só com `;` (o Excel grava assim as que tiveram
+formatação) são ignoradas. As linhas boas entram; as com erro são apontadas
+pelo número real da linha no Excel. O analista só importa linhas da empresa
+dela. Corpo JSON aceita até 5 MB.
 
 ---
 
@@ -1254,8 +1270,8 @@ Entregas, Colaboradores, Configurações; cabeçalho "Notrole / Estoque de TI".
 
 | Página | Arquivo | Conteúdo |
 |---|---|---|
-| Dashboard | `pages/Dashboard.tsx` | Dois painéis (Estoque e Empréstimos), seletor de categoria/tipo, filtro de empresa (só admin), exportação Excel e PDF |
-| Estoque | `pages/Estoque.tsx` | Abas: **Visão geral** (lista de todos os equipamentos), **uma aba por categoria com `secaoPropria`** (só aparece quando já existe equipamento daquele tipo; o número é o que está na prateleira), **Periféricos** (lista por quantidade; equipamentos sem seção própria aparecem embaixo se existirem), **Por setor**, **Movimentações**. Mostra só `EM_ESTOQUE`, `RESERVADO` e `MANUTENCAO` (`SITUACOES_DO_ESTOQUE`). Link "Ver equipamentos baixados". Aviso de estoque baixo. Importação da contagem inicial |
+| Dashboard | `pages/Dashboard.tsx` | Dois painéis (Estoque e Empréstimos), seletor de categoria/tipo, filtro de empresa (só admin), aviso de estoque baixo (`AvisoEstoqueBaixo`), exportação Excel e PDF |
+| Estoque | `pages/Estoque.tsx` | Abas: **Visão geral** (lista de todos os equipamentos), **uma aba por categoria ativa com `secaoPropria`** (fixa, mesmo sem cadastro; nome no plural pela função `plural()`: Notebooks, Monitores, Celulares; o número é o que está na prateleira), **Periféricos** (lista por quantidade; equipamentos sem seção própria aparecem embaixo se existirem), **Por setor**, **Movimentações**. Mostra só `EM_ESTOQUE`, `RESERVADO` e `MANUTENCAO` (`SITUACOES_DO_ESTOQUE`). Computador sem hostname leva a etiqueta "Pendente de formatação"; a lista mostra as especificações. Link "Ver equipamentos baixados". Aviso de estoque baixo (`AvisoEstoqueBaixo`, em Visão geral e Periféricos). Importação da contagem inicial |
 | Empréstimos / Entregas | `pages/Loans.tsx` (prop `modalidade`) | Lista de cessões com situação calculada (aguardando assinatura, na fila com previsão, e-mail não entregue, atrasado...), ações (devolver, renovar, cancelar, ativar, verificar assinatura, reenviar convite, tentar de novo, histórico, comprovante). Nome do equipamento abre a ficha |
 | Colaboradores | `pages/Collaborators.tsx` | Lista e ficha (dados, CPF/endereço editáveis, equipamentos com a pessoa, cessões) |
 | Configurações | `pages/Settings.tsx` | Seções: Acesso (perfil e empresa), D4Sign (status, fila, pausa), Rotinas (agenda e botões), E-mail (SMTP, últimos envios), Empresas, Categorias do estoque, Modelos de e-mail |
@@ -1266,12 +1282,13 @@ Entregas, Colaboradores, Configurações; cabeçalho "Notrole / Estoque de TI".
 |---|---|
 | `NewLoanModal` | Nova cessão: busca no AD, sugestão "Já usou", CPF/endereço, empresa do termo (travada na do equipamento para o analista), motivo, acessórios, prazo, "enviar termo" |
 | `EmprestimoAcaoModal` | Devolver / renovar / cancelar / ativar; fala "entrega" na modalidade DEFINITIVA; mostra o `aviso` amarelo do cancelamento; recarrega em 409 |
-| `ItemModal` | Cadastro/edição de equipamento |
-| `ItemFichaModal` | Ficha do equipamento: dados, extrato, ações (transferir, manutenção, baixa, receber de volta, excluir); fecha sozinha após baixa/entrega |
+| `ItemModal` | Cadastro/edição de equipamento; em categoria `computador`, patrimônio obrigatório, hostname e especificações (processador, memória e armazenamento em GB); patrimônio e hostname em maiúsculas |
+| `ItemFichaModal` | Ficha do equipamento: dados (hostname e especificações só em computador; etiqueta "Pendente de formatação"), extrato, ações (transferir, manutenção, baixa, receber de volta, excluir); fecha sozinha após baixa/entrega |
 | `QuantidadeModal` | Cadastro e movimentação de periféricos |
 | `ImportacaoModal` | Modelo CSV e importação |
+| `AvisoEstoqueBaixo` | Uma etiqueta por periférico no mínimo ou abaixo: categoria + descrição ("Memória RAM 8GB") e saldo ("3 / mín. 5"); empresa só para o admin. Usado no Estoque e no Dashboard |
 | `HistoricoModal` | Linha do tempo da cessão |
-| `EmpresasPainel`, `EstoquePainel` | Cadastro de empresas e de categorias em Configurações |
+| `EmpresasPainel`, `EstoquePainel` | Cadastro de empresas e de categorias em Configurações (categoria: seção própria e "Computador") |
 | `AuthContext` | Usuário MSAL, login/logout |
 | `ThemeProvider`, `ThemeToggle` | Tema `dark` (padrão), `light` ou `system`, salvo em `localStorage` (`notrole-theme`) |
 | `ui/*` | Badge, Button, Campo, Card, DateInput, Empresa (logo), Input, Modal, MoneyInput, PageHeader, Secao, Select, Table |
@@ -1283,7 +1300,7 @@ Entregas, Colaboradores, Configurações; cabeçalho "Notrole / Estoque de TI".
 | `api.ts` | axios com `baseURL = VITE_API_URL || '/api'`. **Interceptor de requisição:** token MSAL silencioso (renova perto de vencer); sem conta, redireciona para o login. **Interceptor de resposta:** 401 tenta de novo uma vez com token novo (não faz logout automático, para não perder formulário); 403 `NAO_AUTORIZADO` marca "acesso negado"; 403 `SEM_EMPRESA` marca "sem empresa"; demais erros viram toast com a `mensagem` da API. Helpers `ehConflito` (409), `mensagemDeErro`, `erroJaAvisado`, `baixarArquivo` (download autenticado, lê erro em Blob) |
 | `msal.ts` | Configuração do MSAL e escopos (ver 7.1) |
 | `perfil.ts` | `carregarPerfil()`/`usePerfil()`: `GET /me` uma vez por sessão; esconde o que a pessoa não pode fazer (quem garante é o servidor) |
-| `dominio.ts` | **Traduções** enum -> rótulo (situação, condição, movimentação, status, ações do histórico, templates), classes de cor, `rotuloSituacaoEmprestimo`, `detalheDaFila` (motivo e hora prevista do termo), `conviteNaoEntregue`, formatação de data/moeda/CPF |
+| `dominio.ts` | **Traduções** enum -> rótulo (situação, condição, movimentação, status, ações do histórico, templates), classes de cor, `rotuloSituacaoEmprestimo`, `detalheDaFila` (motivo e hora prevista do termo), `conviteNaoEntregue`, `nomeDoItem`, `especificacoesDoItem`, `ehComputador`, `pendenteDeFormatacao`, formatação de data/moeda/CPF/GB |
 | `icones.tsx` | Ícones das categorias |
 | `utils.ts` | `cn` (clsx + tailwind-merge) |
 

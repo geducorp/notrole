@@ -7,7 +7,7 @@ import { prisma } from '../config/prisma';
 import { estoqueService } from './EstoqueService';
 import { reportService } from './ReportService';
 import { diasDeAtraso, estaAtrasado } from '../utils/datas';
-import { nomeDoItem } from '../utils/itens';
+import { especificacoesDoItem, nomeDoItem } from '../utils/itens';
 
 /**
  * Planilha do dashboard, para quando a gerencia pedir os numeros.
@@ -161,6 +161,7 @@ export class PlanilhaService {
         { titulo: 'Marca', chave: 'marca', largura: 12 },
         { titulo: 'Modelo', chave: 'modelo', largura: 22 },
         { titulo: 'Patrimônio', chave: 'patrimonio', largura: 16 },
+        { titulo: 'Especificações', chave: 'especificacoes', largura: 30 },
         { titulo: 'Empresa', chave: 'empresa', largura: 18 },
         { titulo: 'Condição', chave: 'condicao', largura: 10 },
         { titulo: 'Situação', chave: 'situacao', largura: 14 },
@@ -174,6 +175,7 @@ export class PlanilhaService {
         marca: i.marca ?? '',
         modelo: i.modelo,
         patrimonio: i.patrimonio ?? '',
+        especificacoes: especificacoesDoItem(i),
         empresa: i.empresa.apelido,
         condicao: i.condicao === 'NOVO' ? 'Novo' : 'Usado',
         situacao: ROTULO_SITUACAO[i.situacao],

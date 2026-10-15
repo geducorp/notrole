@@ -55,8 +55,10 @@ e **rotinas automáticas** de lembrete e cobrança.
 ## Funcionalidades
 
 **Estoque**
-- **Estoque por tipo de equipamento**: uma aba por categoria principal (Notebook, Monitor, Celular,
-  Impressora...), configurável pelo administrador.
+- **Estoque por tipo de equipamento**: uma aba por categoria principal (Notebooks, Monitores, Celulares,
+  Impressoras...), configurável pelo administrador.
+- **Computadores com hostname e especificações** (processador, memória e armazenamento); notebook ainda sem
+  hostname aparece como **pendente de formatação**. Número de série obrigatório só onde faz sentido.
 - **Periféricos por quantidade** (kit teclado e mouse, headset, adaptador): saldo, entrada, saída, ajuste e
   **estoque mínimo**.
 - **Extrato de cada equipamento**: entrada, transferência entre empresas, manutenção, empréstimo, entrega,

@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Versão** | 2.0 — 14/10/2026 |
+| **Versão** | 2.1 — 15/10/2026 |
 | **Para quem** | Analistas de TI da empresa que usa o Notrole |
 | **Endereço** | o definido pela sua TI (ex.: https://notrole.exemplo.com.br) |
 | **Pré-requisitos** | Conta Microsoft corporativa no grupo do Notrole no AD e o campo "Empresa" preenchido no seu perfil do AD |
@@ -51,10 +51,11 @@ hora e o nome de quem fez.
 
 | Termo | O que quer dizer |
 |---|---|
-| **Equipamento** | Item controlado **um a um**, pelo número de série (patrimônio). Ex.: notebook, monitor, celular, impressora. |
+| **Equipamento** | Item controlado **um a um**. Ex.: notebook, monitor, celular, impressora. O número de série (patrimônio) é obrigatório no notebook e opcional nos outros. |
 | **Periférico** | Item controlado **por quantidade** (saldo na prateleira). Ex.: headset, adaptador, kit teclado e mouse, carregador, memória. |
-| **Patrimônio** | O número de série do fabricante (Service Tag). É ele que vai no termo e que identifica o equipamento. |
-| **Hostname** | O nome do notebook na rede (ex.: N-EXEMPLO01). Só existe para notebook. |
+| **Patrimônio** | O número de série do fabricante (Service Tag), sempre em maiúsculas. É ele que vai no termo e que identifica o equipamento. |
+| **Hostname** | O nome do notebook na rede (ex.: N-EXEMPLO01). Só existe para notebook. É o nome que aparece nas listas. |
+| **Pendente de formatação** | Notebook cadastrado ainda sem hostname (não foi formatado). Some quando o hostname é informado. |
 | **Empréstimo** | Cessão **temporária**, com data prevista de devolução. Tem lembrete e cobrança automática por e-mail. |
 | **Entrega** | Cessão **definitiva**, para o colaborador usar no trabalho. Não tem prazo, lembrete nem cobrança. |
 | **Termo de comodato** | O contrato que o colaborador assina eletronicamente pelo D4Sign ao receber o equipamento. Só o colaborador assina. |
@@ -144,7 +145,8 @@ O Dashboard é o resumo da sua empresa. Na aba **Estoque** você vê:
 - **Com colaboradores:** quantos estão entregues e quantos estão emprestados.
 - **Em manutenção.**
 - **Valor em estoque:** a soma do valor dos equipamentos guardados.
-- **Estoque baixo** (aviso amarelo): periféricos que chegaram ao estoque mínimo.
+- **Estoque baixo** (aviso amarelo): periféricos que chegaram ao estoque mínimo,
+  um por etiqueta, com o tipo, o nome e o saldo (ex.: "Memória RAM 8GB 3 / mín. 5").
 - Gráficos: **Equipamentos por categoria**, **Situação dos equipamentos** e
   **Equipamentos por setor** (o que está com as pessoas de cada setor).
 - No canto, a lista **Todos os equipamentos** filtra os números por tipo
@@ -184,11 +186,17 @@ tipos, com: equipamento, patrimônio, empresa, condição (Novo/Usado), situaç�
 valor. Se algum periférico estiver abaixo do mínimo, aparece o aviso amarelo
 **Estoque baixo**.
 
+O **nome** do equipamento é o hostname; sem hostname, é a marca e o modelo.
+Embaixo, em letra menor, vêm o tipo, a marca e o modelo e, no notebook, as
+especificações (ex.: "Notebook · Dell Latitude 5440 · Intel Core i5 · 16 GB
+RAM · 512 GB"). Notebook sem hostname leva a etiqueta amarela **Pendente de
+formatação**.
+
 ### 4.2 Abas por tipo de equipamento
 
-- Cada **tipo principal** de equipamento (Notebook, Monitor, Celular,
-  Impressora...) ganha **uma aba própria**. A aba **aparece sozinha** quando o
-  primeiro equipamento daquele tipo é cadastrado.
+- Cada **tipo principal** de equipamento tem **uma aba própria**, no plural:
+  **Notebooks**, **Monitores**, **Celulares**, **Impressoras**. As abas ficam
+  sempre visíveis, mesmo sem nada cadastrado (aí mostram 0).
 - O número ao lado do nome da aba é quantos estão com a TI agora.
 - As outras abas são **Periféricos** (4.11), **Por setor** (4.12) e
   **Movimentações** (4.13).
@@ -209,10 +217,12 @@ Entregas.
 
 A ficha mostra:
 
-- as etiquetas de **situação**, **condição** e, se for o caso, **Para empréstimo**;
+- as etiquetas de **situação**, **condição** e, se for o caso, **Para empréstimo**
+  e **Pendente de formatação**;
 - se estiver com alguém, um quadro azul dizendo **com quem**, desde quando e a
   situação do termo;
-- hostname (só notebook), patrimônio, empresa, valor e data de entrada;
+- hostname (só notebook), patrimônio, especificações (só notebook), empresa,
+  valor e data de entrada;
 - as observações do cadastro;
 - o **Extrato**: tudo o que aconteceu, do mais novo para o mais antigo.
 
@@ -239,8 +249,9 @@ Os botões no rodapé mudam conforme a situação:
 | **Empresa** \* | Já vem travada na sua empresa ("Você cadastra no estoque da sua empresa"). |
 | **Marca** \* | Ex.: Dell. |
 | **Modelo** \* | Ex.: Latitude 5440. |
-| **Patrimônio (número de série)** \* | A Service Tag do fabricante. Vai no termo de comodato e é por ela que o equipamento é conferido. Não pode repetir. |
-| **Hostname** | Só aparece para notebook: o nome na rede (ex.: NB-EMPRESTIMO-01). |
+| **Patrimônio (número de série)** | A Service Tag do fabricante, gravada em maiúsculas. **Obrigatório no notebook**; nos outros tipos (monitor, celular...) é opcional. Vai no termo de comodato: **sem patrimônio, o equipamento não sai com termo**. Não pode repetir. |
+| **Hostname** | Só aparece para notebook: o nome na rede (ex.: NB-EMPRESTIMO-01). Notebook ainda não formatado? Deixe vazio: ele fica como **Pendente de formatação** até você informar o hostname em **Editar**. |
+| **Processador**, **Memória RAM (GB)**, **Armazenamento (GB)** | Só aparecem para notebook. Ex.: Intel Core i5, 16 e 512 (1 TB = 1024). Não escreva isso no modelo. |
 | **Condição** | **Novo** ou **Usado**. |
 | **Valor** | Valor do equipamento em reais. **Obrigatório para mandar termo de comodato**: sem valor, o empréstimo/entrega com termo não sai. |
 | **Data de entrada** | Já vem com a data de hoje; mude se ele chegou em outro dia. |
@@ -392,12 +403,18 @@ primeiro dia de uso).
 
 1. Em **Estoque**, clique em **Contagem inicial**.
 2. Em **O que você vai importar**, escolha:
-   - **Equipamentos** (um por linha, com número de série); ou
+   - **Equipamentos** (um por linha); ou
    - **Periféricos** (uma linha por tipo, com o saldo).
 3. Clique em **Baixar planilha modelo** e abra o arquivo no Excel.
 4. **Apague as duas linhas de exemplo** e preencha uma linha por item:
    - Equipamentos: categoria, empresa, marca, modelo, patrimônio, hostname,
-     condição, valor, para_emprestimo (sim/não) e observações;
+     processador, memoria_gb, armazenamento_gb, condição, valor,
+     para_emprestimo (sim/não) e observações;
+   - Notebook: o **patrimônio** (número de série) é obrigatório; memória e
+     armazenamento vão em GB (ex.: `16` e `512`; `1 TB` também vale). Sem
+     hostname, o notebook entra como **Pendente de formatação** — informe o
+     hostname em **Editar** depois de formatar;
+   - Monitor e as outras categorias: patrimônio opcional, sem especificações;
    - Periféricos: categoria, empresa, descrição, quantidade, estoque_minimo,
      valor_unitario e observações.
    - A **empresa** tem que ser a sua; a **categoria** tem que existir no Notrole.
@@ -952,4 +969,4 @@ da tela.
 
 ---
 
-*Notrole — Estoque de TI · Manual do Analista · versão 2.0*
+*Notrole — Estoque de TI · Manual do Analista · versão 2.1*

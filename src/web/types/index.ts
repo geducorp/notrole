@@ -69,6 +69,11 @@ export interface Categoria {
   ativo: boolean;
   /** Ganha aba propria no Estoque; senao fica em "Perifericos". */
   secaoPropria: boolean;
+  /**
+   * Computador (notebook, desktop): exige numero de serie, tem hostname e
+   * especificacoes. Sem hostname, fica "pendente de formatacao".
+   */
+  computador: boolean;
 }
 
 /**
@@ -83,6 +88,10 @@ export interface Item {
   hostname: string | null;
   /** Numero de serie do fabricante (Service Tag), usado como patrimonio. */
   patrimonio: string | null;
+  /** Especificacoes, so em computador. Memoria e armazenamento em GB. */
+  processador: string | null;
+  memoriaGb: number | null;
+  armazenamentoGb: number | null;
   marca: string | null;
   modelo: string;
   condicao: CondicaoItem;
@@ -179,6 +188,8 @@ export interface ResumoEstoque {
   abaixoDoMinimo: Array<{
     id: number;
     descricao: string;
+    /** Nome da categoria: "Memória RAM", para "8GB" fazer sentido. */
+    categoria: string;
     quantidade: number;
     estoqueMinimo: number;
     empresa: string;

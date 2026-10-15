@@ -9,7 +9,6 @@ import {
   Package,
   Plus,
   Search,
-  TriangleAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -27,6 +26,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ImportacaoModal } from '@/components/ImportacaoModal';
+import { AvisoEstoqueBaixo } from '@/components/AvisoEstoqueBaixo';
 import { ItemFichaModal } from '@/components/ItemFichaModal';
 import { ItemModal } from '@/components/ItemModal';
 import { QuantidadeModal } from '@/components/QuantidadeModal';
@@ -34,9 +34,11 @@ import { api, baixarArquivo, ehConflito } from '@/lib/api';
 import {
   CLASSE_CONDICAO_ITEM,
   CLASSE_SITUACAO_ITEM,
+  especificacoesDoItem,
   formatarDataHora,
   formatarMoeda,
   nomeDoItem,
+  pendenteDeFormatacao,
   ROTULO_CONDICAO_ITEM,
   ROTULO_MOVIMENTACAO,
   ROTULO_SITUACAO_ITEM,
@@ -78,6 +80,24 @@ function categoriaDaAba(aba: Aba): number | null {
  * usuario: "ele nao e estoque"); baixado saiu de circulacao.
  */
 const SITUACOES_DO_ESTOQUE: SituacaoItem[] = ['EM_ESTOQUE', 'RESERVADO', 'MANUTENCAO'];
+
+/**
+ * Nome da aba no plural, como "Periféricos": Notebook -> Notebooks, Monitor ->
+ * Monitores, Celular -> Celulares. A categoria e cadastrada no singular.
+ */
+function plural(nome: string): string {
+  const palavras = nome.trim().split(/\s+/);
+  const ultima = palavras.pop() ?? '';
+  // "Memória RAM", "TV": sigla no fim fica como esta.
+  if (!ultima || /^[A-Z0-9]+$/.test(ultima) || /s$/i.test(ultima)) return nome;
+  let noPlural: string;
+  if (/ão$/i.test(ultima)) noPlural = ultima.replace(/ão$/i, 'ões');
+  else if (/[rz]$/i.test(ultima)) noPlural = `${ultima}es`;
+  else if (/m$/i.test(ultima)) noPlural = ultima.replace(/m$/i, 'ns');
+  else if (/[aeou]l$/i.test(ultima)) noPlural = ultima.replace(/l$/i, 'is');
+  else noPlural = `${ultima}s`;
+  return [...palavras, noPlural].join(' ');
+}
 
 function contarNoEstoque(resumo: ResumoEstoque | null, categoria: string): number {
   return (resumo?.porCategoriaESituacao ?? [])
@@ -136,17 +156,15 @@ export function Estoque() {
   );
   const perifericosQuantidade = useMemo(() => categorias.filter((c) => c.controle === 'QUANTIDADE'), [categorias]);
 
-  // Equipamentos principais que ja tem algum cadastro. A aba aberta continua
-  // visivel mesmo se o filtro de empresa a deixar vazia.
+  // Equipamentos principais: aba fixa para cada categoria ativa com secao
+  // propria, mesmo vazia (antes so aparecia depois do primeiro cadastro, e o
+  // estoque zerado nao mostrava onde cadastrar).
   const principais = useMemo(
     () =>
       categorias.filter(
-        (c) =>
-          c.controle === 'ITEM' &&
-          c.secaoPropria &&
-          (c.id === categoriaAberta || (resumo?.porCategoria ?? []).some((x) => x.categoria === c.nome && x.total > 0)),
+        (c) => c.controle === 'ITEM' && c.secaoPropria && (c.ativo || c.id === categoriaAberta),
       ),
-    [categorias, resumo, categoriaAberta],
+    [categorias, categoriaAberta],
   );
 
   // Atalhos de Perifericos: equipamento so aparece se houver algum no estoque
@@ -284,7 +302,7 @@ export function Estoque() {
     setCarregando(true);
   };
 
-  const nomeDaAberta = categorias.find((c) => c.id === categoriaAberta)?.nome;
+  const nomeDaAberta = plural(categorias.find((c) => c.id === categoriaAberta)?.nome ?? '');
   const listaDeEquipamentos = aba === 'geral' || categoriaAberta !== null;
   const comLista = listaDeEquipamentos || aba === 'perifericos';
 
@@ -292,7 +310,7 @@ export function Estoque() {
     { id: 'geral', rotulo: 'Visão geral' },
     ...principais.map((c) => ({
       id: abaDaCategoria(c.id),
-      rotulo: c.nome,
+      rotulo: plural(c.nome),
       // So o que esta com a TI; entregue e emprestado ficam em Entregas e Emprestimos.
       quantidade: contarNoEstoque(resumo, c.nome),
       Icone: iconeDaCategoria(c.icone),
@@ -366,7 +384,7 @@ export function Estoque() {
       </div>
 
       {/* Os numeros do estoque ficam no Dashboard; aqui so o aviso que pede acao. */}
-      {resumo && (aba === 'geral' || aba === 'perifericos') && <AvisoEstoqueBaixo resumo={resumo} />}
+      {resumo && (aba === 'geral' || aba === 'perifericos') && <AvisoEstoqueBaixo itens={resumo.abaixoDoMinimo} />}
 
       <div className="space-y-3">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
@@ -523,21 +541,6 @@ export function Estoque() {
 }
 
 // ---------------------------------------------------------------------------
-
-function AvisoEstoqueBaixo({ resumo }: { resumo: ResumoEstoque }) {
-  if (resumo.abaixoDoMinimo.length === 0) return null;
-  return (
-    <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3.5 text-sm text-amber-800 ring-1 ring-inset ring-amber-600/15 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/20">
-      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-      <span>
-        <b>Estoque baixo:</b>{' '}
-        {resumo.abaixoDoMinimo
-          .map((i) => `${i.descricao} (${i.quantidade} de ${i.estoqueMinimo} mínimos, ${i.empresa})`)
-          .join(' · ')}
-      </span>
-    </p>
-  );
-}
 
 /**
  * Atalhos por categoria dentro de Perifericos. As categorias ja chegam
@@ -721,11 +724,18 @@ function TabelaEquipamentos({
                       <Icone className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-900 dark:text-slate-100">{nomeDoItem(item)}</p>
+                      <p className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-medium text-slate-900 dark:text-slate-100">{nomeDoItem(item)}</span>
+                        {pendenteDeFormatacao(item) && (
+                          <Badge className={cn('shrink-0', TOM.ambar)}>Pendente de formatação</Badge>
+                        )}
+                      </p>
                       <p className="truncate text-xs text-slate-500">
                         {[
                           mostrarCategoria ? item.categoria.nome : null,
-                          [item.marca, item.modelo].filter(Boolean).join(' '),
+                          // Sem hostname, marca + modelo ja e o titulo: nao repete.
+                          item.hostname ? [item.marca, item.modelo].filter(Boolean).join(' ') : null,
+                          especificacoesDoItem(item),
                           item.colaborador ? `com ${item.colaborador.nome}` : null,
                         ]
                           .filter(Boolean)

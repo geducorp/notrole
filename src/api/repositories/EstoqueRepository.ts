@@ -117,11 +117,20 @@ export class EstoqueRepository {
   /** Itens por quantidade no limite ou abaixo do estoque minimo. */
   listarAbaixoDoMinimo(empresaId?: number) {
     return prisma.$queryRaw<
-      Array<{ id: number; descricao: string; quantidade: number; estoqueMinimo: number; empresa: string }>
+      Array<{
+        id: number;
+        descricao: string;
+        categoria: string;
+        quantidade: number;
+        estoqueMinimo: number;
+        empresa: string;
+      }>
     >`
-      SELECT q."id", q."descricao", q."quantidade", q."estoqueMinimo", e."apelido" AS empresa
+      SELECT q."id", q."descricao", c."nome" AS categoria, q."quantidade", q."estoqueMinimo",
+             e."apelido" AS empresa
       FROM "ItemQuantidade" q
       JOIN "Empresa" e ON e."id" = q."empresaId"
+      JOIN "Categoria" c ON c."id" = q."categoriaId"
       WHERE q."estoqueMinimo" IS NOT NULL
         AND q."quantidade" <= q."estoqueMinimo"
         ${empresaId ? Prisma.sql`AND q."empresaId" = ${empresaId}` : Prisma.empty}

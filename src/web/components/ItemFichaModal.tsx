@@ -33,7 +33,10 @@ import {
   ROTULO_MOVIMENTACAO,
   ROTULO_SITUACAO_ITEM,
   rotuloSituacaoEmprestimo,
-  ehNotebook,
+  ehComputador,
+  especificacoesDoItem,
+  pendenteDeFormatacao,
+  TOM,
 } from '@/lib/dominio';
 import { iconeDaCategoria } from '@/lib/icones';
 import { usePerfil } from '@/lib/perfil';
@@ -178,7 +181,12 @@ export function ItemFichaModal({
         icone={<Icone className="h-4 w-4" />}
         titulo={item ? nomeDoItem(item) : 'Equipamento'}
         descricao={
-          item ? `${item.categoria?.nome} · ${[item.marca, item.modelo].filter(Boolean).join(' ')}` : undefined
+          // Sem hostname, marca + modelo ja e o titulo: nao repete.
+          item
+            ? [item.categoria?.nome, item.hostname ? [item.marca, item.modelo].filter(Boolean).join(' ') : null]
+                .filter(Boolean)
+                .join(' · ')
+            : undefined
         }
         largura="xl"
         rodape={
@@ -240,6 +248,11 @@ export function ItemFichaModal({
                 {ROTULO_CONDICAO_ITEM[item.condicao]}
               </Badge>
               {item.paraEmprestimo && <Badge className={CLASSE_SITUACAO_ITEM.EMPRESTADO}>Para empréstimo</Badge>}
+              {pendenteDeFormatacao(item) && (
+                <Badge className={TOM.ambar} title="Sem hostname. Ao formatar, informe o hostname em Editar.">
+                  Pendente de formatação
+                </Badge>
+              )}
             </div>
 
             {cessaoAberta && cessaoParaDevolucao && (
@@ -259,13 +272,16 @@ export function ItemFichaModal({
 
             {/*
               Em linha que se ajusta: com 4 ou 5 dados, nunca sobra quadrado
-              vazio. Hostname so aparece em notebook.
+              vazio. Hostname e especificacoes so aparecem em computador.
             */}
             <dl className="flex flex-wrap gap-px overflow-hidden rounded-xl border border-slate-200/80 bg-slate-200/80 text-sm dark:border-slate-800 dark:bg-slate-800">
               {(
                 [
-                  ...(ehNotebook(item.categoria) ? [['Hostname', item.hostname ?? '-']] : []),
+                  ...(ehComputador(item.categoria) ? [['Hostname', item.hostname ?? '-']] : []),
                   ['Patrimônio', item.patrimonio ?? '-'],
+                  ...(ehComputador(item.categoria) && especificacoesDoItem(item)
+                    ? [['Especificações', especificacoesDoItem(item)]]
+                    : []),
                   ['Empresa', <NomeEmpresa apelido={item.empresa.apelido} />],
                   ['Valor', item.valor ? formatarMoeda(item.valor) : '-'],
                   ['Entrada', formatarData(item.dataEntrada)],
