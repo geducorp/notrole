@@ -179,7 +179,7 @@ export class ImportacaoService {
       .filter((l) => l.texto.replace(/[;"\s]/g, ''));
 
     if (linhas.length < 2) {
-      throw new AppError('A planilha esta vazia: preencha pelo menos uma linha abaixo do cabecalho.', 422);
+      throw new AppError('A planilha está vazia: preencha pelo menos uma linha abaixo do cabeçalho.', 422);
     }
 
     const cabecalho = dividirLinha(linhas[0]!.texto).map((c) => semAcento(c).replace(/\s+/g, '_'));
@@ -187,7 +187,7 @@ export class ImportacaoService {
     const faltando = esperado.filter((c) => !cabecalho.includes(c));
     if (faltando.length) {
       throw new AppError(
-        `A planilha nao tem as colunas: ${faltando.join(', ')}. Baixe o modelo e preencha sobre ele.`,
+        `A planilha não tem as colunas: ${faltando.join(', ')}. Baixe o modelo e preencha sobre ele.`,
         422,
         'CABECALHO_INVALIDO',
       );
@@ -208,31 +208,31 @@ export class ImportacaoService {
 
       try {
         const categoria = categorias.find((c) => semAcento(c.nome) === semAcento(campo('categoria')));
-        if (!categoria) throw new Error(`categoria "${campo('categoria')}" nao existe`);
+        if (!categoria) throw new Error(`categoria "${campo('categoria')}" não existe`);
 
         const controleEsperado = tipo === 'equipamentos' ? 'ITEM' : 'QUANTIDADE';
         if (categoria.controle !== controleEsperado) {
           throw new Error(
-            `a categoria "${categoria.nome}" e controlada por ` +
+            `a categoria "${categoria.nome}" é controlada por ` +
               (categoria.controle === 'ITEM' ? 'equipamento' : 'quantidade') +
               ', use a outra planilha',
           );
         }
 
         const empresa = empresas.find((e) => semAcento(e.apelido) === semAcento(campo('empresa')));
-        if (!empresa) throw new Error(`empresa "${campo('empresa')}" nao existe`);
+        if (!empresa) throw new Error(`empresa "${campo('empresa')}" não existe`);
         // Cada analista importa para o estoque da propria empresa.
         if (permissao) permissaoService.exigirEmpresa(permissao, empresa.id, 'importar equipamentos');
 
         if (tipo === 'equipamentos') {
           const modelo = campo('modelo');
-          if (!modelo) throw new Error('o modelo e obrigatorio');
-          if (!campo('marca')) throw new Error('a marca e obrigatoria');
+          if (!modelo) throw new Error('o modelo é obrigatório');
+          if (!campo('marca')) throw new Error('a marca é obrigatória');
           // Numero de serie: obrigatorio so em computador (notebook). Monitor
           // e celular podem entrar sem.
           const patrimonio = campo('patrimonio') ? campo('patrimonio').toUpperCase() : null;
           if (categoria.computador && !patrimonio) {
-            throw new Error(`o patrimonio (numero de serie) e obrigatorio para ${categoria.nome}`);
+            throw new Error(`o patrimônio (número de série) é obrigatório para ${categoria.nome}`);
           }
 
           const condicao = semAcento(campo('condicao')) === 'usado' ? 'USADO' : 'NOVO';
@@ -240,18 +240,18 @@ export class ImportacaoService {
           const especificacoes = categoria.computador
             ? {
                 processador: campo('processador') || null,
-                memoriaGb: paraGb(campo('memoria_gb'), 'a memoria'),
+                memoriaGb: paraGb(campo('memoria_gb'), 'a memória'),
                 armazenamentoGb: paraGb(campo('armazenamento_gb'), 'o armazenamento'),
               }
             : {};
 
           if (patrimonio) {
             const existente = await prisma.item.findUnique({ where: { patrimonio } });
-            if (existente) throw new Error(`ja existe equipamento com o patrimonio ${patrimonio}`);
+            if (existente) throw new Error(`já existe equipamento com o patrimônio ${patrimonio}`);
           }
           if (hostname) {
             const existente = await prisma.item.findUnique({ where: { hostname } });
-            if (existente) throw new Error(`ja existe equipamento com o hostname ${hostname}`);
+            if (existente) throw new Error(`já existe equipamento com o hostname ${hostname}`);
           }
 
           await prisma.$transaction(async (tx) => {
@@ -285,10 +285,10 @@ export class ImportacaoService {
           });
         } else {
           const descricao = campo('descricao');
-          if (!descricao) throw new Error('a descricao e obrigatoria');
+          if (!descricao) throw new Error('a descrição é obrigatória');
 
           const quantidade = paraNumero(campo('quantidade')) ?? 0;
-          if (quantidade < 0) throw new Error('a quantidade nao pode ser negativa');
+          if (quantidade < 0) throw new Error('a quantidade não pode ser negativa');
 
           // O banco guarda inteiro: "2,5" dava uma mensagem crua do Prisma.
           const textoMinimo = campo('estoque_minimo');
@@ -297,7 +297,7 @@ export class ImportacaoService {
             textoMinimo &&
             (estoqueMinimo === null || !/\d/.test(textoMinimo) || !Number.isInteger(estoqueMinimo) || estoqueMinimo < 0)
           ) {
-            throw new Error(`o estoque minimo "${textoMinimo}" precisa ser um numero inteiro, zero ou maior`);
+            throw new Error(`o estoque mínimo "${textoMinimo}" precisa ser um número inteiro, zero ou maior`);
           }
 
           const jaExiste = await estoqueRepository.buscarQuantidadePorDescricao(
@@ -305,7 +305,7 @@ export class ImportacaoService {
             categoria.id,
             descricao,
           );
-          if (jaExiste) throw new Error(`ja existe "${descricao}" em ${empresa.apelido}`);
+          if (jaExiste) throw new Error(`já existe "${descricao}" em ${empresa.apelido}`);
 
           await prisma.$transaction(async (tx) => {
             const registro = await tx.itemQuantidade.create({

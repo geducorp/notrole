@@ -172,7 +172,7 @@ export function ItemModal({
       aoFechar={aoFechar}
       icone={<PackagePlus className="h-4 w-4" />}
       titulo={itemParaEditar ? 'Editar equipamento' : 'Novo equipamento'}
-      descricao={itemParaEditar ? undefined : 'Um registro por equipamento, com número de série.'}
+      descricao={itemParaEditar ? undefined : 'Um registro por equipamento.'}
       largura="xl"
       rodape={
         <>

@@ -59,9 +59,12 @@ export function nomeDoItem(item: Pick<Item, 'hostname' | 'marca' | 'modelo'>): s
   return [item.marca, item.modelo].filter(Boolean).join(' ');
 }
 
-/** 1024 -> "1 TB"; 512 -> "512 GB". */
+/**
+ * 1024 -> "1 TB"; 512 -> "512 GB". Espaco inseparavel entre numero e unidade:
+ * na ficha, a linha quebrava em "16 / GB RAM".
+ */
 export function formatarGb(gb: number): string {
-  return gb >= 1024 && gb % 1024 === 0 ? `${gb / 1024} TB` : `${gb} GB`;
+  return gb >= 1024 && gb % 1024 === 0 ? `${gb / 1024} TB` : `${gb} GB`;
 }
 
 /** "Intel Core i5 · 16 GB RAM · 512 GB": vazio quando nao ha especificacao. */

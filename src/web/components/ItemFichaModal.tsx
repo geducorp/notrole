@@ -289,8 +289,12 @@ export function ItemFichaModal({
               ).map(([rotulo, valor]) => (
                 <div key={rotulo} className="min-w-0 flex-1 basis-[9rem] bg-slate-50 px-3.5 py-2.5 dark:bg-slate-950/60">
                   <dt className="text-xs text-slate-500 dark:text-slate-400">{rotulo}</dt>
-                  {/* Quebra a linha em vez de cortar: hostname e patrimonio precisam aparecer inteiros. */}
-                  <dd className="flex break-all font-medium text-slate-900 dark:text-slate-100">{valor}</dd>
+                  {/*
+                    Quebra a linha em vez de cortar: hostname e patrimonio precisam aparecer
+                    inteiros. "anywhere" quebra nos espacos primeiro e so parte a palavra se
+                    nao couber (break-all partia "16 GB" em "16 G / B").
+                  */}
+                  <dd className="flex font-medium text-slate-900 [overflow-wrap:anywhere] dark:text-slate-100">{valor}</dd>
                 </div>
               ))}
             </dl>
