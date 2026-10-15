@@ -22,6 +22,7 @@ Foi construído para um ambiente corporativo real, com várias empresas sob a me
 ## Sumário
 
 - [O problema](#o-problema)
+- [Telas](#telas)
 - [Funcionalidades](#funcionalidades)
 - [Stack](#stack)
 - [Arquitetura](#arquitetura)
@@ -51,6 +52,21 @@ prateleira e saem conforme a necessidade. Sem um sistema:
 
 O Notrole resolve isso com um **estoque com extrato** (todo movimento registrado), **cessões com termo digital**
 e **rotinas automáticas** de lembrete e cobrança.
+
+## Telas
+
+*Dados de demonstração (empresas, pessoas e números de série fictícios).*
+
+**Estoque** — uma aba por tipo de equipamento, especificações na linha, aviso de estoque baixo e notebook
+"pendente de formatação" quando ainda não tem hostname.
+
+![Estoque, visão geral](docs/img/estoque.png)
+
+| Dashboard | Ficha do equipamento |
+|---|---|
+| ![Dashboard](docs/img/dashboard.png) | ![Ficha do equipamento com extrato](docs/img/ficha-equipamento.png) |
+| **Periféricos por quantidade** | **Tema escuro** |
+| ![Periféricos com saldo e estoque mínimo](docs/img/perifericos.png) | ![Estoque no tema escuro](docs/img/estoque-escuro.png) |
 
 ## Funcionalidades
 
